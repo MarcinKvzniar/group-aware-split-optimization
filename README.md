@@ -15,7 +15,7 @@ Standard scikit-learn splitters handle one constraint or the other, never both s
 
 ### Cost function
 
-Weighted MAPE summed over all *(split × class)* pairs:
+Weighted MAPE summed over all *(split x class)* pairs:
 
 $$
 \mathcal{L} = \sum_{s,\,c} w_c \cdot \frac{|\text{actual}_{s,c} - \text{target}_{s,c}|}{\text{target}_{s,c} + \varepsilon}
@@ -26,7 +26,7 @@ where $w_c \propto 1/f_c$ gives higher penalty to rare classes.
 ## Datasets
 
 ### BCSS — Breast Cancer Semantic Segmentation
-151 whole-slide images tiled into 512 × 512 patches (8 768 tiles total), 21 tissue classes.
+151 whole-slide images tiled into 512 x 512 patches (8 768 tiles total), 21 tissue classes.
 
 - Download from [Google Drive](https://drive.google.com/drive/folders/1zqbdkQF8i5cEmZOGmbdQm-EP8dRYtvss) and extract to `./datasets/bcss/`
 - Citation: Amgad et al., *Bioinformatics* 35(18), 2019. DOI: [10.1093/bioinformatics/btz083](https://doi.org/10.1093/bioinformatics/btz083)

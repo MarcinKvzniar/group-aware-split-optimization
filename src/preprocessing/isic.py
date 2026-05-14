@@ -3,7 +3,6 @@ ISIC 2020 preprocessing: train.csv -> DatasetGroups.
 
 Groups: 2,056 patients. Items: dermoscopy images.
 Feature vector: image counts per diagnosis class (9 classes, sorted alphabetically).
-Melanoma is the rare positive class at ≈1.76%.
 """
 
 import os
@@ -12,7 +11,6 @@ import pandas as pd
 
 from .common import DatasetGroups, save_dataset
 
-# ── Paths ────────────────────────────────────────────────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
@@ -24,7 +22,6 @@ def preprocess() -> DatasetGroups:
     print("[ISIC2020] Loading train.csv...")
     df = pd.read_csv(CSV_PATH)
 
-    # Sorted for reproducibility across runs / machines
     class_names = sorted(df["diagnosis"].unique().tolist())
     class_index = {name: i for i, name in enumerate(class_names)}
     n_classes = len(class_names)

@@ -1,9 +1,9 @@
 """
 BCSS preprocessing: 151 WSI mask PNGs -> DatasetGroups.
 
-Groups: WSIs. Items: non-overlapping PATCH_SIZE×PATCH_SIZE tiles.
-Feature vector: pixel counts for classes 1–21 (class 0 = outside ROI, excluded).
-Group size = floor(H/PATCH_SIZE) × floor(W/PATCH_SIZE).
+Groups: WSIs. Items: non-overlapping PATCH_SIZExPATCH_SIZE tiles.
+Feature vector: pixel counts for classes 1-21 (class 0 = outside ROI, excluded).
+Group size = floor(H/PATCH_SIZE) x floor(W/PATCH_SIZE).
 """
 
 import os
@@ -12,15 +12,13 @@ from PIL import Image
 
 from .common import DatasetGroups, save_dataset
 
-# ── Paths ────────────────────────────────────────────────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
 MASK_DIR    = os.path.join(_ROOT, "datasets", "bcss", "mask")
 OUTPUT_PATH = os.path.join(_ROOT, "datasets", "bcss", "preprocessed", "groups.pkl")
 
-# ── Constants ────────────────────────────────────────────────────────────────
-PATCH_SIZE = 512  # tile size used to compute group_sizes
+PATCH_SIZE = 512
 
 # GT codes 1-21 from gtruth_codes.tsv (code 0 = outside_roi, excluded)
 CLASS_NAMES = [
@@ -63,15 +61,12 @@ def preprocess(patch_size: int = PATCH_SIZE) -> DatasetGroups:
         wsi_id = fname.split("_xmin")[0]
         mask_path = os.path.join(MASK_DIR, fname)
 
-        mask = np.array(Image.open(mask_path))  # uint8, values 0-21
+        mask = np.array(Image.open(mask_path))
         h, w = mask.shape
 
-        # Pixel histogram via bincount — O(h*w), much faster than per-class sum
         pixel_counts = np.bincount(mask.ravel(), minlength=N_CLASSES + 1)
-        # Drop class 0 (outside_roi); keep classes 1-21
         counts = pixel_counts[1: N_CLASSES + 1].astype(np.int64)
 
-        # Number of complete non-overlapping tiles
         n_patches = max(1, (h // patch_size) * (w // patch_size))
 
         group_ids.append(wsi_id)

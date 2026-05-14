@@ -9,6 +9,7 @@ datasets/celeb-faces/list_eval_partition.csv
 datasets/celeb-faces/identity_CelebA.txt
 datasets/bdd100k/
 datasets/isic2020/train.csv
+results/
 
 !datasets/bcss/preprocessed/
 !datasets/celeb-faces/preprocessed/

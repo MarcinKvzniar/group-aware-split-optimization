@@ -16,8 +16,8 @@ class DatasetGroups:
     """
     dataset_name: str
     group_ids: List[str]
-    group_vectors: np.ndarray   # shape (n_groups, n_classes), dtype int64
-    group_sizes: np.ndarray     # shape (n_groups,),           dtype int32
+    group_vectors: np.ndarray
+    group_sizes: np.ndarray
     class_names: List[str]
 
     @property

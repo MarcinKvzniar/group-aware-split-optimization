@@ -11,7 +11,6 @@ import pandas as pd
 
 from .common import DatasetGroups, save_dataset
 
-# ── Paths ────────────────────────────────────────────────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
@@ -27,21 +26,18 @@ def preprocess() -> DatasetGroups:
     )
 
     print("[CelebA] Loading attribute file...")
-    attr_df = pd.read_csv(ATTR_PATH)                     # columns: image_id, attr1, ..., attr40
+    attr_df = pd.read_csv(ATTR_PATH)                  
 
     attr_cols = [c for c in attr_df.columns if c != "image_id"]
 
-    # Remap +1 -> 1, -1 -> 0
     attr_df[attr_cols] = ((attr_df[attr_cols] + 1) // 2).astype(np.int8)
 
-    # Merge on image_id
     print("[CelebA] Merging attributes with identities...")
     merged = attr_df.merge(identity_df, on="image_id")
 
     print(f"[CelebA] {len(merged)} images, "
           f"{merged['identity_id'].nunique()} identities")
 
-    # Aggregate per identity
     print("[CelebA] Aggregating group feature vectors...")
     grouped = merged.groupby("identity_id")
 
@@ -50,9 +46,9 @@ def preprocess() -> DatasetGroups:
     group_sizes: list[int] = []
 
     for identity_id, group in grouped:
-        vectors = group[attr_cols].values           # (n_images, 40)
+        vectors = group[attr_cols].values           
         group_ids.append(str(identity_id))
-        group_vectors.append(vectors.sum(axis=0))   # (40,)
+        group_vectors.append(vectors.sum(axis=0))
         group_sizes.append(len(group))
 
     data = DatasetGroups(
