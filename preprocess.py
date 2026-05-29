@@ -6,10 +6,9 @@ Preprocessing runner - execute from the project root:
 If no arguments are given, all three datasets are processed.
 """
 
-import sys
 import os
+import sys
 
-# Make sure the project root is on the path when running this file directly
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.preprocessing import bcss, celeba, isic
@@ -28,9 +27,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     for name in targets:
-        print(f"\n{'#'*60}")
-        print(f"#  Preprocessing: {name.upper()}")
-        print(f"{'#'*60}")
+        print(f"Preprocessing: {name.upper()}")
         _PROCESSORS[name]()
 
     print("\nAll done.")

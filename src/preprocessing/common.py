@@ -1,9 +1,10 @@
 """Shared data format used by preprocessors and optimizers."""
 
-from dataclasses import dataclass
-from typing import List
 import os
 import pickle
+from dataclasses import dataclass
+from typing import List
+
 import numpy as np
 
 
@@ -48,20 +49,20 @@ class DatasetGroups:
         counts = self.global_class_counts
 
         lines = [
-            f"{'='*60}",
+            f"{'=' * 60}",
             f"Dataset : {self.dataset_name}",
             f"Groups  : {self.n_groups}",
             f"Items   : {self.total_items}",
             f"Classes : {self.n_classes}",
-            f"Group sizes — min:{sizes.min()}  max:{sizes.max()}  "
+            f"Group sizes - min:{sizes.min()}  max:{sizes.max()}  "
             f"mean:{sizes.mean():.1f}  median:{np.median(sizes):.1f}",
-            f"{'='*60}",
+            f"{'=' * 60}",
             f"{'Class':<40} {'Frequency':>10}  {'Count':>10}",
-            f"{'-'*62}",
+            f"{'-' * 62}",
         ]
         for name, freq, count in zip(self.class_names, freqs, counts):
-            lines.append(f"{name:<40} {freq*100:>9.3f}%  {int(count):>10,}")
-        lines.append(f"{'='*60}")
+            lines.append(f"{name:<40} {freq * 100:>9.3f}%  {int(count):>10,}")
+        lines.append(f"{'=' * 60}")
         return "\n".join(lines)
 
 

@@ -1,6 +1,6 @@
 # Metaheuristic Optimization of Group-Aware Stratified Splitting
 
-> **Course:** Optimization Methods — Final Project
+> **Course:** Optimization Methods - Final Project
 
 ---
 
@@ -25,22 +25,24 @@ where $w_c \propto 1/f_c$ gives higher penalty to rare classes.
 
 ## Datasets
 
-### BCSS — Breast Cancer Semantic Segmentation
+*No download needed - for optimization all datasets are summarized in groups.pkl rerpresentation*
+
+### BCSS - Breast Cancer Semantic Segmentation
 151 whole-slide images tiled into 512 x 512 patches (8 768 tiles total), 21 tissue classes.
 
 - Download from [Google Drive](https://drive.google.com/drive/folders/1zqbdkQF8i5cEmZOGmbdQm-EP8dRYtvss) and extract to `./datasets/bcss/`
 - Citation: Amgad et al., *Bioinformatics* 35(18), 2019. DOI: [10.1093/bioinformatics/btz083](https://doi.org/10.1093/bioinformatics/btz083)
 
-### CelebA — Large-Scale Face Attributes
+### CelebA - Large-Scale Face Attributes
 202 599 celebrity face images grouped by identity (10 177 unique persons), 40 binary attributes.
 
 - Download from [Kaggle](https://www.kaggle.com/datasets/jessicali9530/celeba-dataset) and extract to `./datasets/celeb-faces/`
 - Also requires `identity_CelebA.txt` (available in the same Kaggle package)
 - Citation: Liu et al., *ICCV*, December 2015.
 
-### ISIC 2020 — Melanoma Classification
+### ISIC 2020 - Melanoma Classification
 33 126 dermoscopy images from 2 056 patients, 9 diagnosis classes (1.76 % melanoma).
 
 - Download **only `train.csv`** from the [Kaggle competition](https://www.kaggle.com/competitions/siim-isic-melanoma-classification/data?select=train.csv) (requires competition sign-up) and place it in `./datasets/isic2020/`
-- License: CC BY-NC 4.0 — academic use only
+- License: CC BY-NC 4.0 - academic use only
 - Citation: Zawacki et al., *SIIM-ISIC Melanoma Classification*, Kaggle 2020.

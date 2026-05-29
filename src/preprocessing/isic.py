@@ -6,6 +6,7 @@ Feature vector: image counts per diagnosis class (9 classes, sorted alphabetical
 """
 
 import os
+
 import numpy as np
 import pandas as pd
 
@@ -14,7 +15,7 @@ from .common import DatasetGroups, save_dataset
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
-CSV_PATH    = os.path.join(_ROOT, "datasets", "isic2020", "train.csv")
+CSV_PATH = os.path.join(_ROOT, "datasets", "isic2020", "train.csv")
 OUTPUT_PATH = os.path.join(_ROOT, "datasets", "isic2020", "preprocessed", "groups.pkl")
 
 
@@ -30,8 +31,8 @@ def preprocess() -> DatasetGroups:
           f"{df['patient_id'].nunique()} patients, "
           f"{n_classes} diagnosis classes")
 
-    group_ids: list[str]   = []
-    group_vectors: list    = []
+    group_ids: list[str] = []
+    group_vectors: list = []
     group_sizes: list[int] = []
 
     for patient_id, group in df.groupby("patient_id"):

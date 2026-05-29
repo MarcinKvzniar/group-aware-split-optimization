@@ -7,6 +7,7 @@ Group size = floor(H/PATCH_SIZE) x floor(W/PATCH_SIZE).
 """
 
 import os
+
 import numpy as np
 from PIL import Image
 
@@ -15,7 +16,7 @@ from .common import DatasetGroups, save_dataset
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
-MASK_DIR    = os.path.join(_ROOT, "datasets", "bcss", "mask")
+MASK_DIR = os.path.join(_ROOT, "datasets", "bcss", "mask")
 OUTPUT_PATH = os.path.join(_ROOT, "datasets", "bcss", "preprocessed", "groups.pkl")
 
 PATCH_SIZE = 512
@@ -52,9 +53,9 @@ def preprocess(patch_size: int = PATCH_SIZE) -> DatasetGroups:
     if not mask_files:
         raise FileNotFoundError(f"No mask PNG files found in {MASK_DIR}")
 
-    group_ids: list[str]    = []
-    group_vectors: list     = []
-    group_sizes: list[int]  = []
+    group_ids: list[str] = []
+    group_vectors: list = []
+    group_sizes: list[int] = []
 
     print(f"[BCSS] Processing {len(mask_files)} masks (patch_size={patch_size})...")
     for idx, fname in enumerate(mask_files, 1):
