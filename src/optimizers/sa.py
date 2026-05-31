@@ -21,7 +21,6 @@ class SimulatedAnnealing(Optimizer):
     ------
     data : DatasetGroups
     ratios : tuple of float        target split fractions, must sum to 1
-    target_cost : float            early-stop threshold
     max_evals : int                total FFE budget (shared by all algorithms)
     initial_temp : float           starting temperature
     cooling_rate : float           in (0, 1), applied each step
@@ -33,7 +32,6 @@ class SimulatedAnnealing(Optimizer):
         self,
         data,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        target_cost: float = 0.5,
         max_evals: int = 500_000,
         initial_temp: float = 10.0,
         cooling_rate: float = 0.9999,
@@ -57,7 +55,6 @@ class SimulatedAnnealing(Optimizer):
                 f"got min_temp={min_temp}, initial_temp={initial_temp}."
             )
 
-        self.target_cost = target_cost
         self.initial_temp = initial_temp
         self.cooling_rate = cooling_rate
         self.min_temp = min_temp
@@ -156,21 +153,13 @@ class SimulatedAnnealing(Optimizer):
                         f"  elapsed={elapsed:.1f}s"
                     )
 
-            if best_cost <= self.target_cost:
-                if verbose:
-                    print(
-                        f"  Target cost {self.target_cost} reached "
-                        f"at eval {n_evals:,}."
-                    )
-                break
-
         elapsed = time.perf_counter() - t_start
         return SplitResult(
             assignment=best_assignment,
             cost=best_cost,
             n_evals=n_evals,
             n_iterations=iteration,
-            converged=best_cost <= self.target_cost,
+            converged=False,
             elapsed_time=elapsed,
             cost_history=cost_history,
             target_counts=self._target.copy(),

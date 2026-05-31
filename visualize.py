@@ -1,7 +1,7 @@
 """Visualize cost-convergence curves for split optimizers.
 
-Usage: uv run python visualize.py [bcss|celeba|isic|all] [--fast] - quick preview (50k cap)
-Figures are saved to results/convergence_<name>.png.
+Usage: uv run python visualize.py [bcss|celeba|isic|synth_*|all] [--fast] - quick preview (50k cap)
+Figures are saved to results/<type>/convergence_<name>.png.
 """
 
 import os
@@ -102,16 +102,19 @@ if __name__ == "__main__":
     positional = [a for a in sys.argv[1:] if not a.startswith("-")]
     flags = {a.lstrip("-").lower() for a in sys.argv[1:] if a.startswith("-")}
 
-    target = positional[0].lower() if positional else "all"
-
-    if target not in list(_cmp._DATASET_PATHS) + ["all"]:
-        print(
-            f"Unknown dataset '{target}'. "
-            f"Choose from: {list(_cmp._DATASET_PATHS) + ['all']}"
-        )
-        sys.exit(1)
-
-    names = list(_cmp._DATASET_PATHS) if target == "all" else [target]
+    if not positional or positional == ["all"]:
+        names = list(_cmp._DATASET_PATHS)
+    elif "all" in positional:
+        names = list(_cmp._DATASET_PATHS)
+    else:
+        unknown = [a for a in positional if a not in _cmp._DATASET_PATHS]
+        if unknown:
+            print(
+                f"Unknown dataset(s): {unknown}. "
+                f"Choose from: {list(_cmp._DATASET_PATHS) + ['all']}"
+            )
+            sys.exit(1)
+        names = positional
 
     if "fast" in flags:
         fast_budget = 50_000
@@ -122,6 +125,7 @@ if __name__ == "__main__":
     for name in names:
         print(f"[{name}] running optimizers …", flush=True)
         _, results = _cmp.run_one(name)
-        out = plot_convergence(name, results)
+        outdir = os.path.join("results", _cmp._result_folder(name))
+        out = plot_convergence(name, results, outdir=outdir)
         costs_str = "  ".join(f"{k}={v.cost:.4f}" for k, v in results.items())
         print(f"[{name}] {costs_str}  -> {out}")

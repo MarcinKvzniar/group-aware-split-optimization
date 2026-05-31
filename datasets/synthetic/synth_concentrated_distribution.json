@@ -1,0 +1,156 @@
+{
+  "dataset": "synth_concentrated",
+  "n_groups": 56,
+  "total_items": 20000,
+  "classes": [
+    {
+      "name": "class_00",
+      "count": 7767,
+      "frequency_pct": 38.835,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_01",
+      "count": 3381,
+      "frequency_pct": 16.905,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_02",
+      "count": 2079,
+      "frequency_pct": 10.395,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_03",
+      "count": 1472,
+      "frequency_pct": 7.36,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_04",
+      "count": 1126,
+      "frequency_pct": 5.63,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_05",
+      "count": 905,
+      "frequency_pct": 4.525,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_06",
+      "count": 752,
+      "frequency_pct": 3.76,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_07",
+      "count": 641,
+      "frequency_pct": 3.205,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_08",
+      "count": 556,
+      "frequency_pct": 2.78,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_09",
+      "count": 490,
+      "frequency_pct": 2.45,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_10",
+      "count": 437,
+      "frequency_pct": 2.185,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    },
+    {
+      "name": "class_11",
+      "count": 394,
+      "frequency_pct": 1.97,
+      "groups_containing": 5,
+      "groups_pct": 8.9286
+    }
+  ],
+  "group_sizes": {
+    "min": 1,
+    "max": 3943,
+    "mean": 357.1429,
+    "median": 163.0,
+    "std": 608.1621,
+    "values": [
+      1859,
+      623,
+      585,
+      126,
+      284,
+      693,
+      2,
+      95,
+      301,
+      518,
+      492,
+      181,
+      1833,
+      172,
+      83,
+      69,
+      163,
+      37,
+      246,
+      90,
+      151,
+      156,
+      163,
+      123,
+      139,
+      121,
+      581,
+      98,
+      209,
+      502,
+      325,
+      39,
+      68,
+      155,
+      1160,
+      202,
+      259,
+      209,
+      248,
+      33,
+      17,
+      62,
+      304,
+      96,
+      501,
+      190,
+      631,
+      12,
+      1,
+      3943,
+      292,
+      117,
+      89,
+      163,
+      113,
+      76
+    ]
+  }
+}

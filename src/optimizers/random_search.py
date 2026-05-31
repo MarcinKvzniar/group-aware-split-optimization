@@ -14,7 +14,6 @@ class RandomSearch(Optimizer):
     ------
     data : DatasetGroups
     ratios : tuple of float  target split fractions, must sum to 1
-    target_cost : float      early-stop threshold
     max_evals : int          total FFE budget (same as SA for fair comparison)
     seed : int | None
     """
@@ -23,12 +22,10 @@ class RandomSearch(Optimizer):
         self,
         data,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        target_cost: float = 0.5,
         max_evals: int = 500_000,
         seed: int | None = None,
     ) -> None:
         super().__init__(data, ratios, max_evals=max_evals, seed=seed)
-        self.target_cost = target_cost
 
     # Core algorithm
     def optimize(
@@ -81,14 +78,6 @@ class RandomSearch(Optimizer):
                         f"  elapsed={elapsed:.1f}s"
                     )
 
-            if best_cost <= self.target_cost:
-                if verbose:
-                    print(
-                        f"  Target cost {self.target_cost} reached "
-                        f"at eval {n_evals:,}."
-                    )
-                break
-
         elapsed = time.perf_counter() - t_start
 
         # Fallback: if max_evals == 0 or data is empty, return a trivial result.
@@ -102,7 +91,7 @@ class RandomSearch(Optimizer):
             cost=best_cost,
             n_evals=n_evals,
             n_iterations=n_evals,
-            converged=best_cost <= self.target_cost,
+            converged=False,
             elapsed_time=elapsed,
             cost_history=cost_history,
             target_counts=self._target.copy(),

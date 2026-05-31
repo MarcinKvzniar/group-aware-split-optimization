@@ -87,9 +87,15 @@ class Optimizer(ABC):
 
     # Protected cost utilities
     def _build_weights(self) -> np.ndarray:
-        """Inverse-frequency class weights, mean-normalised to 1."""
+        """Inverse-frequency class weights, mean-normalised to 1.
+        Classes that appear in fewer than N_SPLITS groups are unstratifiable, 
+        so they are excluded from the cost.
+        """
         counts = self.data.global_class_counts.astype(np.float64)
-        return counts.sum() / (self.data.n_classes * counts + 1e-6)
+        inv_freq = counts.sum() / (self.data.n_classes * counts + 1e-6)
+        n_groups_per_class = (self.data.group_vectors > 0).sum(axis=0)
+        stratifiable = (n_groups_per_class >= N_SPLITS).astype(np.float64)
+        return inv_freq * stratifiable
 
     def _build_target_counts(self) -> np.ndarray:
         """Ideal item counts: target[s, c] = global_count[c] * ratio[s]."""

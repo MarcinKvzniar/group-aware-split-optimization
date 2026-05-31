@@ -1,9 +1,10 @@
 """Benchmark runner: compare split optimizers from src/optimizers.
 
-Usage: uv run python compare.py [bcss|celeba|isic|all] (default: all)
-Results saved to results/<name>_report.txt and results/summary.txt.
+Usage: uv run python compare.py [bcss|celeba|isic|synth_*|all] (default: all)
+Results saved to results/<type>/<name>_report.txt and results/summary.txt.
 """
 
+import glob
 import io
 import os
 import sys
@@ -28,9 +29,17 @@ _DATASET_PATHS = {
     "isic": "datasets/isic2020/preprocessed/groups.pkl",
 }
 
+for _pkl in sorted(glob.glob("datasets/synthetic/preprocessed/*.pkl")):
+    _key = os.path.splitext(os.path.basename(_pkl))[0]
+    _DATASET_PATHS[_key] = _pkl
+
+
+def _result_folder(name: str) -> str:
+    """Map a dataset name to its results subfolder."""
+    return "synthetic" if name.startswith("synth_") else name
+
 # Config
 RATIOS = (0.70, 0.15, 0.15)
-TARGET_COST = 0.5
 MAX_EVALS = 500_000
 INITIAL_TEMP = 10.0
 COOLING_RATE = 0.9999
@@ -44,7 +53,6 @@ _OPTIMIZERS: list[tuple[str, type, dict]] = [
         "SA",
         SimulatedAnnealing,
         dict(
-            target_cost=TARGET_COST,
             max_evals=MAX_EVALS,
             initial_temp=INITIAL_TEMP,
             cooling_rate=COOLING_RATE,
@@ -56,7 +64,6 @@ _OPTIMIZERS: list[tuple[str, type, dict]] = [
         "RS",
         RandomSearch,
         dict(
-            target_cost=TARGET_COST,
             max_evals=MAX_EVALS,
             seed=SEED,
         ),
@@ -80,10 +87,8 @@ def build_report(
     results: dict[str, SplitResult],
     ratios: tuple[float, ...] = RATIOS,
 ) -> str:
-    """Build a text comparison report for a single dataset."""
+    """Build a per-dataset report showing the exact class distribution per split."""
     buf = io.StringIO()
-    ratios_ = np.asarray(ratios, dtype=np.float64)
-    names = list(results)
 
     buf.write(f"\n{'=' * 100}\n")
     buf.write(
@@ -92,62 +97,55 @@ def build_report(
     )
     buf.write(f"{'=' * 100}\n")
 
-    header = (
-        f"  {'Method':<20}"
-        + "  ".join(f"{n:>22}" for n in SPLIT_NAMES)
-        + f"  {'Cost':>10}  {'Evals':>10}  {'Time':>8}"
-    )
-    buf.write(header + "\n")
-    buf.write("-" * len(header) + "\n")
-    costs: dict[str, float] = {}
-    for alg_name, res in results.items():
-        row = f"  {alg_name:<20}"
-        for s in range(N_SPLITS):
-            n_g = int((res.assignment == s).sum())
-            n_i = int(data.group_sizes[res.assignment == s].sum())
-            row += f"  {n_g:>5}g/{n_i:>7}i ({n_i / data.total_items * 100:.1f}%)"
-        row += f"  {res.cost:>10.4f}  {res.n_evals:>10,}  {res.elapsed_time:>7.2f}s"
-        buf.write(row + "\n")
-        costs[alg_name] = res.cost
-
-    col_w = 9
-    buf.write("\n  Per-class |actual - target| deviation (% of class total):\n")
-    h2 = f"  {'Class':<42}" + "".join(
-        f"  {n + ' tr':>{col_w}}  {n + ' va':>{col_w}}  {n + ' te':>{col_w}}"
-        for n in names
-    )
-    buf.write(h2 + "\n")
-    buf.write("  " + "-" * (len(h2) - 2) + "\n")
-
+    cell_w = 20
     total_counts = data.global_class_counts.astype(float)
-    for c in range(data.n_classes):
-        total = total_counts[c]
-        if total == 0:
-            continue
-        row = f"  {data.class_names[c]:<42}"
-        for res in results.values():
+
+    for alg_name, res in results.items():
+        buf.write(f"\n  {alg_name}\n")
+        header = f"  {'Class':<42}" + "".join(
+            f"  {name:>{cell_w}}" for name in SPLIT_NAMES
+        )
+        buf.write(header + "\n")
+        buf.write("  " + "-" * (len(header) - 2) + "\n")
+
+        for c in range(data.n_classes):
+            total = total_counts[c]
+            if total == 0:
+                continue
+            row = f"  {data.class_names[c]:<42}"
             for s in range(N_SPLITS):
-                dev = abs(res.actual_counts[s, c] / total * 100.0 - ratios_[s] * 100.0)
-                row += f"  {dev:>{col_w}.2f}%"
+                count = int(res.actual_counts[s, c])
+                pct = count / total * 100.0
+                cell = f"{count:,} ({pct:.1f}%)"
+                row += f"  {cell:>{cell_w}}"
+            buf.write(row + "\n")
+
+        # Totals row
+        buf.write("  " + "-" * (len(header) - 2) + "\n")
+        row = f"  {'TOTAL':<42}"
+        for s in range(N_SPLITS):
+            n_items = int(data.group_sizes[res.assignment == s].sum())
+            pct = n_items / data.total_items * 100.0
+            cell = f"{n_items:,} ({pct:.1f}%)"
+            row += f"  {cell:>{cell_w}}"
         buf.write(row + "\n")
 
-    best = min(costs, key=costs.__getitem__)
-    buf.write("\n")
-    for alg_name, cost in costs.items():
-        tag = " <- best" if alg_name == best else ""
-        buf.write(f"  {alg_name:<20}  cost={cost:.4f}{tag}\n")
     buf.write("=" * 100 + "\n")
     return buf.getvalue()
 
 
 # Main
 if __name__ == "__main__":
-    target = sys.argv[1].lower() if len(sys.argv) > 1 else "all"
-    names = list(_DATASET_PATHS) if target == "all" else [target]
+    args = [a.lower() for a in sys.argv[1:]] if len(sys.argv) > 1 else ["all"]
 
-    if target not in list(_DATASET_PATHS) + ["all"]:
-        print(f"Unknown dataset '{target}'. Choose from: {list(_DATASET_PATHS) + ['all']}")
-        sys.exit(1)
+    if "all" in args:
+        names = list(_DATASET_PATHS)
+    else:
+        unknown = [a for a in args if a not in _DATASET_PATHS]
+        if unknown:
+            print(f"Unknown dataset(s): {unknown}. Choose from: {list(_DATASET_PATHS) + ['all']}")
+            sys.exit(1)
+        names = args
 
     os.makedirs("results", exist_ok=True)
     summary_rows = []
@@ -156,7 +154,9 @@ if __name__ == "__main__":
         print(f"[{name}] running...", flush=True)
         data, results = run_one(name)
 
-        report_path = f"results/{name}_report.txt"
+        outdir = os.path.join("results", _result_folder(name))
+        os.makedirs(outdir, exist_ok=True)
+        report_path = os.path.join(outdir, f"{name}_report.txt")
         with open(report_path, "w") as f:
             f.write(build_report(data, results))
 
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     summary_text = buf.getvalue()
     print(summary_text)
 
-    summary_path = "results/summary.txt"
+    summary_path = os.path.join("results", "summary.txt")
     with open(summary_path, "w") as f:
         f.write(summary_text)
     print(f"Summary saved to {summary_path}")
