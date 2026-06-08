@@ -88,7 +88,7 @@ class Optimizer(ABC):
     # Protected cost utilities
     def _build_weights(self) -> np.ndarray:
         """Inverse-frequency class weights, mean-normalised to 1.
-        Classes that appear in fewer than N_SPLITS groups are unstratifiable, 
+        Classes that appear in fewer than N_SPLITS groups are unstratifiable,
         so they are excluded from the cost.
         """
         counts = self.data.global_class_counts.astype(np.float64)

@@ -126,6 +126,7 @@ class SimulatedAnnealing(Optimizer):
                     best_cost = cost
                     best_assignment = assignment.copy()
                     best_actual = actual.copy()
+                    cost_history.append((n_evals, best_cost))
             else:
                 actual[new_s] -= vec
                 actual[old_s] += vec
@@ -143,7 +144,6 @@ class SimulatedAnnealing(Optimizer):
 
             if n_evals % log_interval == 0:
                 elapsed = time.perf_counter() - t_start
-                cost_history.append((n_evals, best_cost))
                 if verbose:
                     print(
                         f"  evals {n_evals:>7,}"
