@@ -13,12 +13,16 @@ from .base import (
 )
 from .random_search import RandomSearch
 from .sa import SimulatedAnnealing
+from .dee import DifferentialEvolutionOptimizer
+from .de import DifferentialEvolution2VecOptimizer
 
 __all__ = [
     "Optimizer",
     "SplitResult",
     "SimulatedAnnealing",
     "RandomSearch",
+    "DifferentialEvolutionOptimizer",
+    "DifferentialEvolution2VecOptimizer",
     "SPLIT_NAMES",
     "N_SPLITS",
     "evaluate_assignment",
