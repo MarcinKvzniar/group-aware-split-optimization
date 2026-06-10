@@ -1,8 +1,7 @@
-"""Benchmark runner: compare split optimizers from src/optimizers.
-Creates visualizations of cost-convergence curves for split optimizers.
+"""Benchmark runner: compare split optimizers across multiple seeds.
+Evaluates Mean ± Std Dev of cost and plots representative convergence curves.
 
 Usage: uv run python run_benchmark.py [bcss|celeba|isic|synth_*]
-Results saved to results/<type>/<name>_report.txt, results/<type>/convergence_<name>.[png|csv]. and results/summary.txt.
 """
 
 import csv
@@ -10,6 +9,7 @@ import glob
 import io
 import os
 import sys
+import time
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
@@ -21,204 +21,198 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.optimizers import N_SPLITS, SPLIT_NAMES, RandomSearch, SimulatedAnnealing, SplitResult
+from src.optimizers.de import DifferentialEvolution
 from src.optimizers.stratified_group_k_fold import SGKFBaseline
 from src.preprocessing.common import DatasetGroups, load_dataset
+
+MAX_EVALS = 500_000
+RATIOS = (0.70, 0.15, 0.15)
+N_RUNS = 10
+SEEDS = [42 + i for i in range(N_RUNS)]
+
+_OPTIMIZERS = [
+    ("SA", SimulatedAnnealing, dict(initial_temp=100.0, cooling_rate=0.9999, min_temp=1e-4)),
+    ("DE", DifferentialEvolution, dict(strategy="DE/best/1/bin", pop_size=100, f_weight=0.5, crossover_prob=0.9)),
+    ("RS", RandomSearch, dict()),
+    ("SGKF", SGKFBaseline, dict(max_evals=1)),
+]
+
+_STYLE = {
+    "SA": dict(color="#1f77b4", linestyle="-", linewidth=1.8),
+    "DE": dict(color="#d62728", linestyle="-", linewidth=1.8),
+    "RS": dict(color="#ff7f0e", linestyle="--", linewidth=1.8),
+    "SGKF": dict(color="#2ca02c", linestyle=":", linewidth=2.0),
+}
 
 _DATASET_PATHS = {
     "bcss": "datasets/bcss/preprocessed/groups.pkl",
     "celeba": "datasets/celeb-faces/preprocessed/groups.pkl",
     "isic": "datasets/isic2020/preprocessed/groups.pkl",
 }
-
 for _pkl in sorted(glob.glob("datasets/synthetic/preprocessed/*.pkl")):
     _DATASET_PATHS[os.path.splitext(os.path.basename(_pkl))[0]] = _pkl
-
 
 def _result_folder(name: str) -> str:
     return "synthetic" if name.startswith("synth_") else name
 
-
-RATIOS = (0.70, 0.15, 0.15)
-MAX_EVALS = 500_000
-INITIAL_TEMP = 100.0
-COOLING_RATE = 0.9999
-MIN_TEMP = 1e-4
-SEED = 42
-
-_OPTIMIZERS = [
-    ("SA", SimulatedAnnealing, dict(max_evals=MAX_EVALS, initial_temp=INITIAL_TEMP, cooling_rate=COOLING_RATE, min_temp=MIN_TEMP, seed=SEED)),
-    ("RS", RandomSearch, dict(max_evals=MAX_EVALS, seed=SEED)),
-    ("SGKF", SGKFBaseline, {}),
-]
-
-_STYLE = {
-    "SA": dict(color="#1f77b4", linestyle="-", linewidth=1.8, marker="o", markersize=4),
-    "RS": dict(color="#ff7f0e", linestyle="--", linewidth=1.8, marker="s", markersize=4),
-    "SGKF": dict(color="#2ca02c", linestyle=":", linewidth=2.0, marker="", markersize=0),
-}
-_FALLBACK_COLORS = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-
-
-def _get_style(alg_name: str, idx: int) -> dict:
-    if alg_name in _STYLE:
-        return dict(_STYLE[alg_name])
-    return dict(color=_FALLBACK_COLORS[idx % len(_FALLBACK_COLORS)], linestyle="-", linewidth=1.8, marker="x", markersize=4)
-
-
-def run_one(name: str) -> tuple[DatasetGroups, dict[str, SplitResult]]:
-    data = load_dataset(_DATASET_PATHS[name])
-    results = {}
-    for alg_name, cls, kwargs in _OPTIMIZERS:
-        results[alg_name] = cls(data=data, ratios=RATIOS, **kwargs).optimize(verbose=False)
-    return data, results
-
-
-def build_report(data: DatasetGroups, results: dict[str, SplitResult], ratios: tuple[float, ...] = RATIOS) -> str:
-    buf = io.StringIO()
-    buf.write(f"\n{data.dataset_name} | Groups: {data.n_groups} | Classes: {data.n_classes} | Budget: {MAX_EVALS}\n\n")
-    cell_w = 20
-    total_counts = data.global_class_counts.astype(float)
-
-    for alg_name, res in results.items():
-        buf.write(f"[{alg_name}]\n")
-        header = f"{'Class':<42}" + "".join(f"{name:>{cell_w}}" for name in SPLIT_NAMES)
-        buf.write(header + "\n" + "-" * len(header) + "\n")
-
-        for c in range(data.n_classes):
-            total = total_counts[c]
-            if total == 0:
-                continue
-            row = f"{data.class_names[c]:<42}"
-            for s in range(N_SPLITS):
-                count = int(res.actual_counts[s, c])
-                pct = count / total * 100.0
-                row += f"{f'{count:,} ({pct:.1f}%)':>{cell_w}}"
-            buf.write(row + "\n")
-
-        buf.write("-" * len(header) + "\n")
-        row = f"{'TOTAL':<42}"
-        for s in range(N_SPLITS):
-            n_items = int(data.group_sizes[res.assignment == s].sum())
-            pct = n_items / data.total_items * 100.0
-            row += f"{f'{n_items:,} ({pct:.1f}%)':>{cell_w}}"
-        buf.write(row + "\n\n")
-    return buf.getvalue()
-
-
 def _unpack_history(result: SplitResult) -> tuple[np.ndarray, np.ndarray]:
+    """Extracts step-wise arrays for plotting convergence."""
     if not result.cost_history:
         return np.array([result.n_evals], dtype=float), np.array([result.cost], dtype=float)
-
+        
     filtered_evals, filtered_costs = [], []
     best_so_far = float('inf')
-
+    
     for e, c in result.cost_history:
         if c < best_so_far:
             best_so_far = c
             filtered_evals.append(e)
             filtered_costs.append(c)
-
+            
     last_e = max(result.n_evals, result.cost_history[-1][0])
     if filtered_evals[-1] < last_e:
         filtered_evals.append(last_e)
         filtered_costs.append(best_so_far)
-
+        
     return np.asarray(filtered_evals, dtype=float), np.asarray(filtered_costs, dtype=float)
 
+def run_one(dataset_name: str) -> tuple[DatasetGroups, dict]:
+    """Runs all optimizers across all seeds for a single dataset."""
+    data = load_dataset(_DATASET_PATHS[dataset_name])
+    results = {}
 
-def save_convergence_data(name: str, results: dict[str, SplitResult], outdir: str) -> str:
-    out_path = os.path.join(outdir, f"convergence_{name}.csv")
-    with open(out_path, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Algorithm", "FFE", "Cost", "Time_s"])
-        for alg_name, res in results.items():
-            evals, costs = _unpack_history(res)
-            times = np.minimum(evals / max(1, res.n_evals), 1.0) * res.elapsed_time
-            best_so_far = float('inf')
-            for e, c, t in zip(evals, costs, times):
-                if c < best_so_far:
-                    writer.writerow([alg_name, int(e), float(c), float(t)])
-                    best_so_far = c
-    return out_path
+    for label, cls, kwargs in _OPTIMIZERS:
+        costs = []
+        histories = []
+        times = []
+        
+        # SGKF is deterministic
+        runs_to_do = 1 if label == "SGKF" else N_RUNS
+        
+        for idx in range(runs_to_do):
+            seed = SEEDS[idx]
+            opt = cls(
+                data=data, 
+                ratios=RATIOS, 
+                max_evals=kwargs.get("max_evals", MAX_EVALS), 
+                seed=seed, 
+                **{k: v for k, v in kwargs.items() if k != "max_evals"}
+            )
+            res = opt.optimize(verbose=False)
+            
+            costs.append(res.cost)
+            histories.append(res)
+            times.append(res.elapsed_time)
 
+        mean_cost = np.mean(costs)
+        std_cost = np.std(costs) if len(costs) > 1 else 0.0
+        mean_time = np.mean(times)
+        
+        # Find the representative run for plotting
+        closest_idx = np.argmin(np.abs(np.array(costs) - mean_cost))
+        rep_res = histories[closest_idx]
 
-def plot_convergence(name: str, results: dict[str, SplitResult], outdir: str) -> str:
-    fig, (ax_ffe, ax_time) = plt.subplots(1, 2, figsize=(13, 5))
-    fig.suptitle(f"{name}", fontsize=14, fontweight="bold")
+        results[label] = {
+            "mean_cost": mean_cost,
+            "std_cost": std_cost,
+            "mean_time": mean_time,
+            "rep_res": rep_res,
+            "all_costs": costs
+        }
+        
+    return data, results
 
-    budget = max(max((r.cost_history[-1][0] if r.cost_history else r.n_evals) for r in results.values()), 1)
-
-    for idx, (alg_name, res) in enumerate(results.items()):
-        style = _get_style(alg_name, idx)
-        evals, costs = _unpack_history(res)
-
-        if len(evals) == 1:
-            ax_ffe.axhline(y=costs[0], label=alg_name, **style)
-            ax_time.axhline(y=costs[0], label=alg_name, **style)
+def plot_convergence(name: str, results: dict, outdir: str):
+    """Plots the representative run for each algorithm."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    for label, data in results.items():
+        res = data["rep_res"]
+        sty = _STYLE.get(label, {})
+        
+        if label == "SGKF":
+            ax.axhline(y=res.cost, label=f"SGKF (Cost: {res.cost:.4f})", **sty)
         else:
-            ax_ffe.step(evals, costs, label=alg_name, **style, where='post')
-            times = np.minimum(evals / max(1, res.n_evals), 1.0) * res.elapsed_time
-            ax_time.step(times, costs, label=alg_name, **style, where='post')
+            evals, costs = _unpack_history(res)
+            label_str = f"{label} (Mean: {data['mean_cost']:.4f} ± {data['std_cost']:.4f})"
+            ax.step(evals, costs, label=label_str, where='post', **sty)
 
-    ax_ffe.set(title="Cost vs FFEs", xlabel=f"FFEs (max {budget:,})", ylabel="Cost")
-    ax_ffe.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x / 1_000:.0f}k" if x >= 1_000 else f"{x:.0f}"))
-
-    ax_time.set(title="Cost vs Time", xlabel="Time (s)", ylabel="Cost")
-
-    for ax in (ax_ffe, ax_time):
-        ax.legend()
-        ax.grid(True, alpha=0.3, linestyle=":")
-        ax.set_ylim(bottom=0)
-
-    fig.tight_layout()
-    out_path = os.path.join(outdir, f"convergence_{name}.png")
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    return out_path
-
+    ax.set_title(f"Convergence Comparison on '{name}' ({N_RUNS} runs)", fontweight="bold")
+    ax.set_xlabel("Function Evaluations (FFE)")
+    ax.set_ylabel("Cost (Weighted MAPE)")
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x / 1_000:.0f}k" if x >= 1_000 else f"{x:.0f}"))
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, f"convergence_{name}.png"), dpi=150)
+    plt.close()
 
 if __name__ == "__main__":
-    pos = [a.lower() for a in sys.argv[1:] if not a.startswith("-")]
-    flags = {a.lstrip("-").lower() for a in sys.argv[1:] if a.startswith("-")}
-    names = list(_DATASET_PATHS) if not pos or "all" in pos else pos
-
-    if "fast" in flags:
-        MAX_EVALS = 50_000
-        for _label, _cls, kwargs in _OPTIMIZERS:
-            if "max_evals" in kwargs:
-                kwargs["max_evals"] = MAX_EVALS
+    args = sys.argv[1:]
+    names = args if args else list(_DATASET_PATHS.keys())
+    
+    # Validate datasets
+    for n in names:
+        if n not in _DATASET_PATHS:
+            sys.exit(f"Error: Unknown dataset '{n}'. Valid options: {list(_DATASET_PATHS.keys())}")
 
     os.makedirs("results", exist_ok=True)
     summary_rows = []
 
+    print(f"=== STRATIFIED DATA SPLIT BENCHMARK ===")
+    print(f"Budget: {MAX_EVALS:,} FFEs")
+    print(f"Runs per algorithm: {N_RUNS} (Seeds: {SEEDS[0]} to {SEEDS[-1]})")
+    print("=" * 45)
+
     for name in names:
-        print(f"-> {name:<22} ", end="", flush=True)
+        print(f"-> Benchmarking {name:<22} ... ", end="", flush=True)
         data, results = run_one(name)
+        
         outdir = os.path.join("results", _result_folder(name))
         os.makedirs(outdir, exist_ok=True)
 
-        with open(os.path.join(outdir, f"{name}_report.txt"), "w") as f:
-            f.write(build_report(data, results))
-
         plot_convergence(name, results, outdir)
-        save_convergence_data(name, results, outdir)
 
-        costs = {k: v.cost for k, v in results.items()}
-        best = min(costs, key=costs.__getitem__)
-        print(f"Done. Best: {best} ({costs[best]:.4f})")
+        best_alg = min(results.keys(), key=lambda k: results[k]["mean_cost"])
+        print(f"Done. Best: {best_alg} ({results[best_alg]['mean_cost']:.4f} ± {results[best_alg]['std_cost']:.4f})")
 
-        summary_rows.append((name, data.n_groups, data.n_classes, results, costs))
+        with open(os.path.join(outdir, f"{name}_report.txt"), "w") as f:
+            f.write(f"=== BENCHMARK REPORT: {name} ===\n")
+            f.write(f"Groups: {data.n_groups} | Classes: {data.n_classes} | Budget: {MAX_EVALS:,} FFE\n")
+            f.write("-" * 65 + "\n")
+            f.write(f" {'Algorithm':<10} | {'Mean Cost':<12} | {'Std Dev':<10} | {'Mean Time':<10}\n")
+            f.write("-" * 65 + "\n")
+            for label, d in results.items():
+                f.write(f" {label:<10} | {d['mean_cost']:<12.4f} | ± {d['std_cost']:<8.4f} | {d['mean_time']:>7.2f}s\n")
 
+        summary_rows.append((name, data.n_groups, data.n_classes, results, best_alg))
+
+    # Summary table
     buf = io.StringIO()
-    algs = list(summary_rows[0][3].keys()) if summary_rows else []
-    header = f"{'Dataset':<18} {'Groups':>8} {'Classes':>8} " + "".join(f"{a:>10}" for a in algs) + f" {'Best':>8}"
+    algs = list(_STYLE.keys())
+    
+    header = f"{'Dataset':<20} {'Groups':>8} {'Classes':>8} " + "".join(f"{a:>15}" for a in algs) + f" {'Winner':>8}"
+    buf.write("\n" + "=" * len(header) + "\n")
+    buf.write("FINAL BENCHMARK SUMMARY (Mean Cost ± Std Dev over 10 runs)\n")
+    buf.write("=" * len(header) + "\n")
+    buf.write(header + "\n")
+    buf.write("-" * len(header) + "\n")
 
-    buf.write(f"\n{header}\n{'-' * len(header)}\n")
-    for name, grp, cls, res, costs in summary_rows:
-        row = f"{name:<18} {grp:>8} {cls:>8} " + "".join(f"{costs[a]:>10.4f}" for a in algs)
-        best = min(costs, key=costs.__getitem__)
-        buf.write(f"{row} {best:>8}\n")
+    for name, grp, cls, res, winner in summary_rows:
+        row_str = f"{name:<20} {grp:>8} {cls:>8} "
+        for a in algs:
+            if a in res:
+                cost_str = f"{res[a]['mean_cost']:.3f}±{res[a]['std_cost']:.3f}"
+            else:
+                cost_str = "N/A"
+            row_str += f"{cost_str:>15}"
+        row_str += f" {winner:>8}"
+        buf.write(row_str + "\n")
 
-    print(buf.getvalue())
+    buf.write("=" * len(header) + "\n")
+    summary_text = buf.getvalue()
+    
+    print(summary_text)
     with open("results/summary.txt", "w") as f:
-        f.write(buf.getvalue())
+        f.write(summary_text)

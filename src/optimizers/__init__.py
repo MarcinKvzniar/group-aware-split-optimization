@@ -14,8 +14,7 @@ from .base import (
 from .random_search import RandomSearch
 from .sa import SimulatedAnnealing
 from .stratified_group_k_fold import SGKFBaseline
-from .dee import DifferentialEvolutionOptimizer
-from .de import DifferentialEvolution2VecOptimizer
+from .de import DifferentialEvolution
 
 
 __all__ = [
@@ -24,8 +23,7 @@ __all__ = [
     "SimulatedAnnealing",
     "RandomSearch",
     "SGKFBaseline",
-    "DifferentialEvolutionOptimizer",
-    "DifferentialEvolution2VecOptimizer",
+    "DifferentialEvolution",
     "SPLIT_NAMES",
     "N_SPLITS",
     "evaluate_assignment",
