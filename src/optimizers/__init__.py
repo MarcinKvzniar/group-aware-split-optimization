@@ -11,11 +11,10 @@ from .base import (
     SplitResult,
     evaluate_assignment,
 )
+from .de import DifferentialEvolution
 from .random_search import RandomSearch
 from .sa import SimulatedAnnealing
 from .stratified_group_k_fold import SGKFBaseline
-from .de import DifferentialEvolution
-
 
 __all__ = [
     "Optimizer",

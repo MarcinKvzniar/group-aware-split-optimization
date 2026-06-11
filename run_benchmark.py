@@ -50,6 +50,7 @@ _DATASET_PATHS = {
 for _pkl in sorted(glob.glob("datasets/synthetic/preprocessed/*.pkl")):
     _DATASET_PATHS[os.path.splitext(os.path.basename(_pkl))[0]] = _pkl
 
+
 def _result_folder(name: str) -> str:
     return "synthetic" if name.startswith("synth_") else name
 
@@ -63,21 +64,21 @@ def run_one(dataset_name: str) -> tuple[DatasetGroups, dict]:
         costs = []
         histories = []
         times = []
-        
+
         # SGKF is deterministic
         runs_to_do = 1 if label == "SGKF" else N_RUNS
-        
+
         for idx in range(runs_to_do):
             seed = SEEDS[idx]
             opt = cls(
-                data=data, 
-                ratios=RATIOS, 
-                max_evals=kwargs.get("max_evals", MAX_EVALS), 
-                seed=seed, 
+                data=data,
+                ratios=RATIOS,
+                max_evals=kwargs.get("max_evals", MAX_EVALS),
+                seed=seed,
                 **{k: v for k, v in kwargs.items() if k != "max_evals"}
             )
             res = opt.optimize(verbose=False)
-            
+
             costs.append(res.cost)
             histories.append(res)
             times.append(res.elapsed_time)
@@ -93,45 +94,45 @@ def run_one(dataset_name: str) -> tuple[DatasetGroups, dict]:
             "all_costs": costs,
             "all_histories": histories
         }
-        
+
     return data, results
 
 
 def plot_convergence(name: str, results: dict, outdir: str):
     """Plots the mean convergence curve with a +/- Std Dev shaded region."""
     fig, ax = plt.subplots(figsize=(8, 5))
-    
+
     ffe_grid = np.linspace(0, MAX_EVALS, 1000)
-    
+
     for label, data in results.items():
         sty = _STYLE.get(label, {})
-        
+
         if label == "SGKF":
             ax.axhline(y=data["mean_cost"], label=f"SGKF (Cost: {data['mean_cost']:.4f})", **sty)
         else:
             interp_costs = []
-            
+
             for res in data["all_histories"]:
                 if not res.cost_history:
                     interp_costs.append(np.full_like(ffe_grid, res.cost))
                     continue
-                    
+
                 raw_evals = [e for e, c in res.cost_history]
                 raw_costs = [c for e, c in res.cost_history]
-                
+
                 idx = np.searchsorted(raw_evals, ffe_grid, side='right') - 1
                 idx = np.clip(idx, 0, len(raw_costs) - 1)
                 interp_costs.append(np.array(raw_costs)[idx])
-                
+
             interp_costs = np.array(interp_costs)
             mean_curve = np.mean(interp_costs, axis=0)
             std_curve = np.std(interp_costs, axis=0)
-            
+
             label_str = f"{label} (Mean: {data['mean_cost']:.4f} ± {data['std_cost']:.4f})"
-            
-            ax.plot(ffe_grid, mean_curve, label=label_str, 
+
+            ax.plot(ffe_grid, mean_curve, label=label_str,
                     color=sty.get("color"), linestyle=sty.get("linestyle"), linewidth=sty.get("linewidth"))
-            
+
             lower_bound = np.maximum(0, mean_curve - std_curve)
             upper_bound = mean_curve + std_curve
             ax.fill_between(ffe_grid, lower_bound, upper_bound, color=sty.get("color"), alpha=0.2)
@@ -142,7 +143,7 @@ def plot_convergence(name: str, results: dict, outdir: str):
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x / 1_000:.0f}k" if x >= 1_000 else f"{x:.0f}"))
     ax.grid(True, alpha=0.3)
     ax.legend()
-    
+
     plt.tight_layout()
     plt.savefig(os.path.join(outdir, f"convergence_{name}.png"), dpi=150)
     plt.close()
@@ -151,7 +152,7 @@ def plot_convergence(name: str, results: dict, outdir: str):
 if __name__ == "__main__":
     args = sys.argv[1:]
     names = args if args else list(_DATASET_PATHS.keys())
-    
+
     # Validate datasets
     for n in names:
         if n not in _DATASET_PATHS:
@@ -160,14 +161,14 @@ if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
     summary_rows = []
 
-    print(f"Stratified Data Split Benchmark")
+    print("Stratified Data Split Benchmark")
     print(f"Budget: {MAX_EVALS:,} FFEs")
     print(f"Runs per algorithm: {N_RUNS} (Seeds: {SEEDS[0]} to {SEEDS[-1]})")
 
     for name in names:
         print(f"-> Benchmarking {name:<22} ... ", end="", flush=True)
         data, results = run_one(name)
-        
+
         outdir = os.path.join("results", _result_folder(name))
         os.makedirs(outdir, exist_ok=True)
 
@@ -190,7 +191,7 @@ if __name__ == "__main__":
     # Summary table
     buf = io.StringIO()
     algs = list(_STYLE.keys())
-    
+
     header = f"{'Dataset':<20} {'Groups':>8} {'Classes':>8} " + "".join(f"{a:>15}" for a in algs) + f" {'Winner':>8}"
     buf.write("\n" + "=" * len(header) + "\n")
     buf.write("FINAL BENCHMARK SUMMARY (Mean Cost ± Std Dev over 10 runs)\n")
@@ -211,7 +212,7 @@ if __name__ == "__main__":
 
     buf.write("=" * len(header) + "\n")
     summary_text = buf.getvalue()
-    
+
     print(summary_text)
     with open("results/summary.txt", "w") as f:
         f.write(summary_text)

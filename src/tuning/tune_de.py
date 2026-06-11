@@ -28,24 +28,25 @@ GRID = {
     "crossover_prob": [0.3, 0.5, 0.9]
 }
 
+
 def _unpack_history(result) -> tuple[np.ndarray, np.ndarray]:
     if not result.cost_history:
         return np.array([result.n_evals], dtype=float), np.array([result.cost], dtype=float)
-        
+
     filtered_evals, filtered_costs = [], []
     best_so_far = float('inf')
-    
+
     for e, c in result.cost_history:
         if c < best_so_far:
             best_so_far = c
             filtered_evals.append(e)
             filtered_costs.append(c)
-            
+
     last_e = max(result.n_evals, result.cost_history[-1][0])
     if filtered_evals[-1] < last_e:
         filtered_evals.append(last_e)
         filtered_costs.append(best_so_far)
-        
+
     return np.asarray(filtered_evals, dtype=float), np.asarray(filtered_costs, dtype=float)
 
 
@@ -53,33 +54,33 @@ if __name__ == "__main__":
     outdir = "results/tuning"
     os.makedirs(outdir, exist_ok=True)
     report_lines = []
-    
+
     def log(msg: str):
         print(msg)
         report_lines.append(msg)
 
     log(f"Loading {DATASET_PATH}...")
     data = load_dataset(DATASET_PATH)
-    
+
     keys = list(GRID.keys())
     combinations = list(itertools.product(*(GRID[k] for k in keys)))
-    
-    log(f"Starting Differential Evolution Grid Search...")
+
+    log("Starting Differential Evolution Grid Search...")
     log(f"Combinations: {len(combinations)}")
     log(f"Runs per combination: {N_RUNS} (Seeds: {SEEDS[0]} to {SEEDS[-1]})")
     log(f"Total Evaluations: {len(combinations) * N_RUNS:,}")
     log(f"FFE Budget: {MAX_EVALS:,}")
     log("-" * 90)
-    
+
     results_list = []
-    
+
     t_start_all = time.time()
     for i, values in enumerate(combinations):
         params = dict(zip(keys, values))
-        
+
         costs = []
         histories = []
-        
+
         for seed in SEEDS:
             opt = DifferentialEvolution(
                 data=data, ratios=RATIOS, max_evals=MAX_EVALS, seed=seed, **params
@@ -87,27 +88,27 @@ if __name__ == "__main__":
             res = opt.optimize(verbose=False)
             costs.append(res.cost)
             histories.append(res)
-            
+
         mean_cost = np.mean(costs)
         std_cost = np.std(costs)
-        
+
         closest_idx = np.argmin(np.abs(np.array(costs) - mean_cost))
-        
+
         results_list.append({
             "params": params,
             "mean": mean_cost,
             "std": std_cost,
             "representative_res": histories[closest_idx]
         })
-        
-        log(f"[{i+1:3d}/{len(combinations)}] {params['strategy']:<15} | Pop={params['pop_size']:<3} | F={params['f_weight']:<3} | CR={params['crossover_prob']:<3} -> Cost: {mean_cost:8.4f} ± {std_cost:.4f}")
-        
+
+        log(f"[{i + 1:3d}/{len(combinations)}] {params['strategy']:<15} | Pop={params['pop_size']:<3} | F={params['f_weight']:<3} | CR={params['crossover_prob']:<3} -> Cost: {mean_cost:8.4f} ± {std_cost:.4f}")
+
     log("-" * 90)
     log(f"Grid search completed in {time.time() - t_start_all:.1f}s")
-    
+
     results_list.sort(key=lambda x: x["mean"])
     best = results_list[0]
-    
+
     log(f"\nBEST PARAMS: {best['params']['strategy']}, Pop={best['params']['pop_size']}, F={best['params']['f_weight']}, CR={best['params']['crossover_prob']}")
     log(f"BEST COST:   {best['mean']:.4f} ± {best['std']:.4f}")
 
@@ -124,18 +125,18 @@ if __name__ == "__main__":
     print(f"Saved text report to {txt_path}")
 
     fig, (ax_best, ax_worst) = plt.subplots(1, 2, figsize=(16, 6))
-    fig.suptitle(f"Differential Evolution: Top 5 Best vs Top 5 Worst (Representative Runs)", fontsize=16, fontweight="bold")
-    
+    fig.suptitle("Differential Evolution: Top 5 Best vs Top 5 Worst (Representative Runs)", fontsize=16, fontweight="bold")
+
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    
+
     # Plot Top 5 Best
     for idx in range(min(5, len(results_list))):
         r = results_list[idx]
         p = r["params"]
         res = r["representative_res"]
         evals, costs = _unpack_history(res)
-        
-        label = f"#{idx+1}: {p['strategy']} (Pop={p['pop_size']}, F={p['f_weight']}, CR={p['crossover_prob']})"
+
+        label = f"#{idx + 1}: {p['strategy']} (Pop={p['pop_size']}, F={p['f_weight']}, CR={p['crossover_prob']})"
         ax_best.step(evals, costs, label=label, color=colors[idx % len(colors)], linewidth=2.0, where='post')
 
     ax_best.set_title("Top 5 BEST Configurations", fontweight="bold", color="green")
@@ -147,12 +148,12 @@ if __name__ == "__main__":
 
     # Plot Top 5 Worst
     worst_list = results_list[-5:][::-1] if len(results_list) >= 5 else results_list[::-1]
-    
+
     for idx, r in enumerate(worst_list):
         p = r["params"]
         res = r["representative_res"]
         evals, costs = _unpack_history(res)
-        
+
         original_rank = len(results_list) - idx
         label = f"#{original_rank}: {p['strategy']} (Pop={p['pop_size']}, F={p['f_weight']}, CR={p['crossover_prob']})"
         ax_worst.step(evals, costs, label=label, color=colors[idx % len(colors)], linewidth=2.0, where='post')
