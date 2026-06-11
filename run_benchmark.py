@@ -1,15 +1,13 @@
 """Benchmark runner: compare split optimizers across multiple seeds.
-Evaluates Mean ± Std Dev of cost and plots representative convergence curves.
+Evaluates Mean +/- Std Dev of cost and plots mean convergence curves with shaded std regions.
 
 Usage: uv run python run_benchmark.py [bcss|celeba|isic|synth_*]
 """
 
-import csv
 import glob
 import io
 import os
 import sys
-import time
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
@@ -20,19 +18,19 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.optimizers import N_SPLITS, SPLIT_NAMES, RandomSearch, SimulatedAnnealing, SplitResult
+from src.optimizers import RandomSearch, SimulatedAnnealing
 from src.optimizers.de import DifferentialEvolution
 from src.optimizers.stratified_group_k_fold import SGKFBaseline
 from src.preprocessing.common import DatasetGroups, load_dataset
 
-MAX_EVALS = 500_000
+MAX_EVALS = 300_000
 RATIOS = (0.70, 0.15, 0.15)
 N_RUNS = 10
 SEEDS = [42 + i for i in range(N_RUNS)]
 
 _OPTIMIZERS = [
     ("SA", SimulatedAnnealing, dict(initial_temp=100.0, cooling_rate=0.9999, min_temp=1e-4)),
-    ("DE", DifferentialEvolution, dict(strategy="DE/best/1/bin", pop_size=100, f_weight=0.5, crossover_prob=0.9)),
+    ("DE", DifferentialEvolution, dict(strategy="DE/best/2/exp", pop_size=50, f_weight=0.9, crossover_prob=0.5)),
     ("RS", RandomSearch, dict()),
     ("SGKF", SGKFBaseline, dict(max_evals=1)),
 ]
@@ -55,26 +53,6 @@ for _pkl in sorted(glob.glob("datasets/synthetic/preprocessed/*.pkl")):
 def _result_folder(name: str) -> str:
     return "synthetic" if name.startswith("synth_") else name
 
-def _unpack_history(result: SplitResult) -> tuple[np.ndarray, np.ndarray]:
-    """Extracts step-wise arrays for plotting convergence."""
-    if not result.cost_history:
-        return np.array([result.n_evals], dtype=float), np.array([result.cost], dtype=float)
-        
-    filtered_evals, filtered_costs = [], []
-    best_so_far = float('inf')
-    
-    for e, c in result.cost_history:
-        if c < best_so_far:
-            best_so_far = c
-            filtered_evals.append(e)
-            filtered_costs.append(c)
-            
-    last_e = max(result.n_evals, result.cost_history[-1][0])
-    if filtered_evals[-1] < last_e:
-        filtered_evals.append(last_e)
-        filtered_costs.append(best_so_far)
-        
-    return np.asarray(filtered_evals, dtype=float), np.asarray(filtered_costs, dtype=float)
 
 def run_one(dataset_name: str) -> tuple[DatasetGroups, dict]:
     """Runs all optimizers across all seeds for a single dataset."""
@@ -107,35 +85,56 @@ def run_one(dataset_name: str) -> tuple[DatasetGroups, dict]:
         mean_cost = np.mean(costs)
         std_cost = np.std(costs) if len(costs) > 1 else 0.0
         mean_time = np.mean(times)
-        
-        # Find the representative run for plotting
-        closest_idx = np.argmin(np.abs(np.array(costs) - mean_cost))
-        rep_res = histories[closest_idx]
 
         results[label] = {
             "mean_cost": mean_cost,
             "std_cost": std_cost,
             "mean_time": mean_time,
-            "rep_res": rep_res,
-            "all_costs": costs
+            "all_costs": costs,
+            "all_histories": histories
         }
         
     return data, results
 
+
 def plot_convergence(name: str, results: dict, outdir: str):
-    """Plots the representative run for each algorithm."""
+    """Plots the mean convergence curve with a +/- Std Dev shaded region."""
     fig, ax = plt.subplots(figsize=(8, 5))
     
+    ffe_grid = np.linspace(0, MAX_EVALS, 1000)
+    
     for label, data in results.items():
-        res = data["rep_res"]
         sty = _STYLE.get(label, {})
         
         if label == "SGKF":
-            ax.axhline(y=res.cost, label=f"SGKF (Cost: {res.cost:.4f})", **sty)
+            ax.axhline(y=data["mean_cost"], label=f"SGKF (Cost: {data['mean_cost']:.4f})", **sty)
         else:
-            evals, costs = _unpack_history(res)
+            interp_costs = []
+            
+            for res in data["all_histories"]:
+                if not res.cost_history:
+                    interp_costs.append(np.full_like(ffe_grid, res.cost))
+                    continue
+                    
+                raw_evals = [e for e, c in res.cost_history]
+                raw_costs = [c for e, c in res.cost_history]
+                
+                idx = np.searchsorted(raw_evals, ffe_grid, side='right') - 1
+                idx = np.clip(idx, 0, len(raw_costs) - 1)
+                interp_costs.append(np.array(raw_costs)[idx])
+                
+            interp_costs = np.array(interp_costs)
+            mean_curve = np.mean(interp_costs, axis=0)
+            std_curve = np.std(interp_costs, axis=0)
+            
             label_str = f"{label} (Mean: {data['mean_cost']:.4f} ± {data['std_cost']:.4f})"
-            ax.step(evals, costs, label=label_str, where='post', **sty)
+            
+            ax.plot(ffe_grid, mean_curve, label=label_str, 
+                    color=sty.get("color"), linestyle=sty.get("linestyle"), linewidth=sty.get("linewidth"))
+            
+            lower_bound = np.maximum(0, mean_curve - std_curve)
+            upper_bound = mean_curve + std_curve
+            ax.fill_between(ffe_grid, lower_bound, upper_bound, color=sty.get("color"), alpha=0.2)
 
     ax.set_title(f"Convergence Comparison on '{name}' ({N_RUNS} runs)", fontweight="bold")
     ax.set_xlabel("Function Evaluations (FFE)")
@@ -147,6 +146,7 @@ def plot_convergence(name: str, results: dict, outdir: str):
     plt.tight_layout()
     plt.savefig(os.path.join(outdir, f"convergence_{name}.png"), dpi=150)
     plt.close()
+
 
 if __name__ == "__main__":
     args = sys.argv[1:]
@@ -160,10 +160,9 @@ if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
     summary_rows = []
 
-    print(f"=== STRATIFIED DATA SPLIT BENCHMARK ===")
+    print(f"Stratified Data Split Benchmark")
     print(f"Budget: {MAX_EVALS:,} FFEs")
     print(f"Runs per algorithm: {N_RUNS} (Seeds: {SEEDS[0]} to {SEEDS[-1]})")
-    print("=" * 45)
 
     for name in names:
         print(f"-> Benchmarking {name:<22} ... ", end="", flush=True)

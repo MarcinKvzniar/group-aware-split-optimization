@@ -32,7 +32,7 @@ class SimulatedAnnealing(Optimizer):
         self,
         data,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        max_evals: int = 500_000,
+        max_evals: int = 300_000,
         initial_temp: float = 10.0,
         cooling_rate: float = 0.9999,
         min_temp: float = 1e-4,

@@ -6,7 +6,7 @@ import numpy as np
 from .base import N_SPLITS, Optimizer, SplitResult
 
 class DifferentialEvolution(Optimizer):
-    def __init__(self, data, ratios=(0.70, 0.15, 0.15), max_evals=500_000, 
+    def __init__(self, data, ratios=(0.70, 0.15, 0.15), max_evals=300_000, 
                  pop_size=50, f_weight=0.5, crossover_prob=0.7, strategy="DE/rand/1/bin", seed=None):
         super().__init__(data, ratios, max_evals=max_evals, seed=seed)
 

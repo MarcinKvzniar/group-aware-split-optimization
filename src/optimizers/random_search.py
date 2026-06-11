@@ -22,7 +22,7 @@ class RandomSearch(Optimizer):
         self,
         data,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        max_evals: int = 500_000,
+        max_evals: int = 300_000,
         seed: int | None = None,
     ) -> None:
         super().__init__(data, ratios, max_evals=max_evals, seed=seed)

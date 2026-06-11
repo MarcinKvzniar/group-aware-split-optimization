@@ -37,8 +37,8 @@ class SGKFBaseline(Optimizer):
 
         total_counts = self.data.group_vectors.sum()
         scale = 1.0
-        if total_counts > 500_000:
-            scale = 500_000 / total_counts
+        if total_counts > 300_000:
+            scale = 300_000 / total_counts
 
         for g_idx in range(self.data.n_groups):
             for c_idx in range(self.data.n_classes):
