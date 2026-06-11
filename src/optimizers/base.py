@@ -44,7 +44,7 @@ class Optimizer(ABC):
     All subclasses use the same _mape_cost() objective and receive the same
     max_evals FFE budget, guaranteeing fair comparison.
 
-    Params: data, ratios=(0.70,0.15,0.15), max_evals=500_000, seed=None
+    Params: data, ratios=(0.70,0.15,0.15), max_evals=300_000, seed=None
     Pre-built: self._weights (n_classes,), self._target (N_SPLITS, n_classes)
     """
 
@@ -52,7 +52,7 @@ class Optimizer(ABC):
         self,
         data: DatasetGroups,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        max_evals: int = 500_000,
+        max_evals: int = 300_000,
         seed: int | None = None,
     ) -> None:
         if len(ratios) != N_SPLITS:
@@ -88,7 +88,7 @@ class Optimizer(ABC):
     # Protected cost utilities
     def _build_weights(self) -> np.ndarray:
         """Inverse-frequency class weights, mean-normalised to 1.
-        Classes that appear in fewer than N_SPLITS groups are unstratifiable, 
+        Classes that appear in fewer than N_SPLITS groups are unstratifiable,
         so they are excluded from the cost.
         """
         counts = self.data.global_class_counts.astype(np.float64)

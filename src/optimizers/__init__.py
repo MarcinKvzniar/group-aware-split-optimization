@@ -13,12 +13,17 @@ from .base import (
 )
 from .random_search import RandomSearch
 from .sa import SimulatedAnnealing
+from .stratified_group_k_fold import SGKFBaseline
+from .de import DifferentialEvolution
+
 
 __all__ = [
     "Optimizer",
     "SplitResult",
     "SimulatedAnnealing",
     "RandomSearch",
+    "SGKFBaseline",
+    "DifferentialEvolution",
     "SPLIT_NAMES",
     "N_SPLITS",
     "evaluate_assignment",

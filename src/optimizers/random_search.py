@@ -22,7 +22,7 @@ class RandomSearch(Optimizer):
         self,
         data,
         ratios: tuple[float, ...] = (0.70, 0.15, 0.15),
-        max_evals: int = 500_000,
+        max_evals: int = 300_000,
         seed: int | None = None,
     ) -> None:
         super().__init__(data, ratios, max_evals=max_evals, seed=seed)
@@ -67,10 +67,10 @@ class RandomSearch(Optimizer):
                 best_cost = cost
                 best_assignment = assignment.copy()
                 best_actual = actual.copy()
+                cost_history.append((n_evals, best_cost))
 
             if n_evals % log_interval == 0:
                 elapsed = time.perf_counter() - t_start
-                cost_history.append((n_evals, best_cost))
                 if verbose:
                     print(
                         f"  evals {n_evals:>7,}"
@@ -80,7 +80,7 @@ class RandomSearch(Optimizer):
 
         elapsed = time.perf_counter() - t_start
 
-        # Fallback: if max_evals == 0 or data is empty, return a trivial result.
+        # Fallback: if max_evals == 0 or data is empty, return a trivial result
         if best_assignment is None:
             best_assignment = np.zeros(self.data.n_groups, dtype=np.intp)
             best_actual = self._count_matrix(best_assignment)
